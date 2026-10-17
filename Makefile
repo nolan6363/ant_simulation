@@ -4,7 +4,7 @@ OBJ_DIR = obj
 BIN_DIR = bin
 
 CFLAGS = -Werror -Wall $(shell pkg-config --cflags sdl3)
-LDLIBS = $(shell pkg-config --libs sdl3)
+LDLIBS = $(shell pkg-config --libs sdl3) -lm
 
 all: $(BIN_DIR)/main
 
