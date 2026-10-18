@@ -47,13 +47,35 @@ bool initSim(Sim *sim) {
 
 void nextSimStep(Sim *sim) {
     for (int i = 0; i < N_ANTS; i++) {
-        sim->ants[i].pos.x += cos(sim->ants[i].theta) * sim->antSpeed;
-        sim->ants[i].pos.y += sin(sim->ants[i].theta) * sim->antSpeed;
-        if ((sim->ants[i].pos.x <= 0) | (sim->ants[i].pos.x > sim->width)) {
-            sim->ants[i].theta = M_PI - sim->ants[i].theta;
+        Ant *ant = &sim->ants[i];
+
+        // walk the ant
+        ant->pos.x += cos(ant->theta) * sim->antSpeed;
+        ant->pos.y += sin(ant->theta) * sim->antSpeed;
+        if (ant->pos.x <= 0) {
+            ant->pos.x = 0;
+            ant->theta = M_PI - ant->theta;
+        } else if (ant->pos.x > sim->width - 1) {
+            ant->pos.x = sim->width - 1;
+            ant->theta = M_PI - ant->theta;
         }
-        if ((sim->ants[i].pos.y <= 0) | (sim->ants[i].pos.y > sim->height)) {
-            sim->ants[i].theta = -sim->ants[i].theta;
+        if (ant->pos.y <= 0) {
+            ant->pos.y = 0;
+            ant->theta = -ant->theta;
+        } else if (ant->pos.y > sim->height - 1) {
+            ant->pos.y = sim->height - 1;
+            ant->theta = -ant->theta;
+        }
+
+        // drop pheromone
+        if (ant->has_food == false) {
+            sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].pheromoneA += 0.1;
+        } else {
+            sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].pheromoneB += 0.1;
+        }
+
+        if (sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].food > 0.0) {
+            ant->has_food = true;
         }
     }
 }

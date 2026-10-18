@@ -136,6 +136,26 @@ void drawFrame(Frontend *frontend, const Sim sim) {
 
     drawGrid(frontend, sim);
 
+    // draw pheromones
+    for (int y = 0; y < sim.height; y++) {
+        for (int x = 0; x < sim.width; x++) {
+            if (sim.simGrid[y][x].pheromoneA > 0.0 |
+                sim.simGrid[y][x].pheromoneB > 0.0) {
+                SDL_FColor pheromoneAColor = {
+                    .r = 0.3 * sim.simGrid[y][x].pheromoneA,
+                    .g = 0.15 * sim.simGrid[y][x].pheromoneA +
+                         0.15 * sim.simGrid[y][x].pheromoneB,
+                    .b = 0.3 * sim.simGrid[y][x].pheromoneB,
+                    .a = 1.0};
+                SDL_FPoint pheromoneCenter = {
+                    x * cellScreenSize + cellScreenSize / 2.0,
+                    y * cellScreenSize + cellScreenSize / 2.0};
+                renderCircle(frontend, pheromoneCenter, cellScreenSize / 2,
+                             pheromoneAColor);
+            }
+        }
+    }
+
     // draw colony
     SDL_FPoint colonyCenter = {
         sim.colony.x * cellScreenSize + cellScreenSize / 2.0,
@@ -158,8 +178,13 @@ void drawFrame(Frontend *frontend, const Sim sim) {
     }
 
     // draw ants
-    SDL_FColor antColor = {.r = 0.0, .g = 1.0, .b = 1.0, .a = 1.0};
     for (int i = 0; i < N_ANTS; i++) {
+        float antColAngle = ((2 * M_PI) / N_ANTS) * i;
+        SDL_FColor antColor = {
+            .r = sin(antColAngle),
+            .g = 0.5 + +0.5 * sin(antColAngle + M_PI * 2.0 / 3.0),
+            .b = 0.5 + 0.5 * sin(antColAngle + M_PI * 4.0 / 3.0),
+            .a = 1.0};
         SDL_FPoint antCenter = {
             sim.ants[i].pos.x * cellScreenSize + cellScreenSize / 2.0,
             sim.ants[i].pos.y * cellScreenSize + cellScreenSize / 2.0};

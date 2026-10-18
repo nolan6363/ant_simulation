@@ -7,6 +7,6 @@
 
 #define COLONY_RADIUS 30
 
-#define N_ANTS 500
+#define N_ANTS 50
 
 #endif // INCLUDEsrcconstantsconstants.h_
