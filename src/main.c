@@ -24,6 +24,7 @@ int main(int argc, char *argv[]) {
     while (frontend.running) {
         checkEvents(&frontend);
         drawFrameSync(&frontend, sim);
+        nextSimStep(&sim);
     }
 
     destroyFrontendRenderer(&frontend);

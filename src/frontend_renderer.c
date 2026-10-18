@@ -118,12 +118,17 @@ void drawGrid(Frontend *frontend, const Sim sim) {
 void drawFrameSync(Frontend *frontend, const Sim sim) {
     SDL_Time nextFrameDelay =
         (1e9 / TARGET_FPS) - (SDL_GetTicksNS() - frontend->prevFrameTime);
+    if (nextFrameDelay < 0) {
+        nextFrameDelay = 0;
+    }
     SDL_DelayNS(nextFrameDelay);
     frontend->prevFrameTime = SDL_GetTicksNS();
     drawFrame(frontend, sim);
 }
 
 void drawFrame(Frontend *frontend, const Sim sim) {
+    float cellScreenSize = (float)SCREEN_W / (float)sim.width;
+
     SDL_Color clearColor = {.r = 0, .g = 0, .b = 0, .a = 255};
     SDL_SetRenderDrawColor(frontend->renderer, clearColor.r, clearColor.g,
                            clearColor.b, clearColor.a);
@@ -132,13 +137,14 @@ void drawFrame(Frontend *frontend, const Sim sim) {
     drawGrid(frontend, sim);
 
     // draw colony
-    SDL_FPoint colonyCenter = {sim.colony.x, sim.colony.y};
+    SDL_FPoint colonyCenter = {
+        sim.colony.x * cellScreenSize + cellScreenSize / 2.0,
+        sim.colony.y * cellScreenSize + cellScreenSize / 2.0};
     SDL_FColor colonyColor = {.r = 1.0, .g = 0, .b = 0, .a = 1.0};
     renderCircle(frontend, colonyCenter, COLONY_RADIUS, colonyColor);
 
     // draw food
     SDL_FColor foodColor = {.r = 1.0, .g = 1.0, .b = 0, .a = 1.0};
-    float cellScreenSize = (float)SCREEN_W / (float)sim.width;
     for (int y = 0; y < sim.height; y++) {
         for (int x = 0; x < sim.width; x++) {
             if (sim.simGrid[y][x].food > 0.0) {
@@ -150,6 +156,17 @@ void drawFrame(Frontend *frontend, const Sim sim) {
             }
         }
     }
+
+    // draw ants
+    SDL_FColor antColor = {.r = 0.0, .g = 1.0, .b = 1.0, .a = 1.0};
+    for (int i = 0; i < N_ANTS; i++) {
+        SDL_FPoint antCenter = {
+            sim.ants[i].pos.x * cellScreenSize + cellScreenSize / 2.0,
+            sim.ants[i].pos.y * cellScreenSize + cellScreenSize / 2.0};
+
+        renderCircle(frontend, antCenter, cellScreenSize / 2, antColor);
+    }
+
     SDL_RenderPresent(frontend->renderer);
 }
 

@@ -3,7 +3,7 @@ SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
 
-CFLAGS = -Werror -Wall $(shell pkg-config --cflags sdl3)
+CFLAGS = -Werror $(shell pkg-config --cflags sdl3)
 LDLIBS = $(shell pkg-config --libs sdl3) -lm
 
 LIB_SRCS = $(filter-out $(SRC_DIR)/main.c, $(wildcard $(SRC_DIR)/*.c))
