@@ -6,6 +6,9 @@ BIN_DIR = bin
 CFLAGS = -Werror -Wall $(shell pkg-config --cflags sdl3)
 LDLIBS = $(shell pkg-config --libs sdl3) -lm
 
+LIB_SRCS = $(filter-out $(SRC_DIR)/main.c, $(wildcard $(SRC_DIR)/*.c))
+LIB_OBJS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(LIB_SRCS))
+
 all: $(BIN_DIR)/main
 
 $(OBJ_DIR):
@@ -14,7 +17,10 @@ $(OBJ_DIR):
 $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
 
-$(BIN_DIR)/main: $(SRC_DIR)/main.c | $(BIN_DIR) $(OBJ_DIR)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(BIN_DIR)/main: $(SRC_DIR)/main.c $(LIB_OBJS) | $(BIN_DIR) $(OBJ_DIR)
 	@$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
 
 run: $(BIN_DIR)/main
