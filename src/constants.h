@@ -2,5 +2,7 @@
 #define INCLUDEsrcconstantsconstants
 
 #define TARGET_FPS 60
+#define SCREEN_W 1920
+#define SCREEN_H 1080
 
 #endif // INCLUDEsrcconstantsconstants.h_

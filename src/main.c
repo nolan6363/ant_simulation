@@ -1,4 +1,5 @@
-#include "game_renderer.h"
+#include "frontend_renderer.h"
+#include "simulation.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
@@ -10,6 +11,8 @@
 #include <stdlib.h>
 
 int main(int argc, char *argv[]) {
+    Sim sim;
+
     Frontend frontend;
     if (!initFrontendRenderer(&frontend)) {
         return EXIT_FAILURE;
@@ -17,7 +20,7 @@ int main(int argc, char *argv[]) {
 
     while (frontend.running) {
         checkEvents(&frontend);
-        drawFrameSync(&frontend);
+        drawFrameSync(&frontend, &sim);
     }
 
     destroyFrontendRenderer(&frontend);
