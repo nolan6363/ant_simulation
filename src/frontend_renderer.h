@@ -17,8 +17,9 @@ bool initFrontendRenderer(Frontend *frontend);
 bool destroyFrontendRenderer(Frontend *frontend);
 void frameDrawRGB(Frontend *frontend);
 void renderCircle(Frontend *frontend, SDL_FPoint center, float radius);
-void drawFrameSync(Frontend *frontend, const Sim *sim);
-void drawFrame(Frontend *frontend, const Sim *sim);
+void drawGrid(Frontend *frontend, const Sim sim);
+void drawFrameSync(Frontend *frontend, const Sim sim);
+void drawFrame(Frontend *frontend, const Sim sim);
 void checkEvents(Frontend *frontend);
 
 #endif // INCLUDEsrcgame_renderergame_renderer.h_

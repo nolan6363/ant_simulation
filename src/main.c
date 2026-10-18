@@ -1,3 +1,4 @@
+#include "constants.h"
 #include "frontend_renderer.h"
 #include "simulation.h"
 #include <SDL3/SDL.h>
@@ -12,6 +13,10 @@
 
 int main(int argc, char *argv[]) {
     Sim sim;
+    sim.colony.x = SCREEN_W / 4.0;
+    sim.colony.y = SCREEN_H / 2.0;
+    sim.width = 256;
+    sim.height = 144;
 
     Frontend frontend;
     if (!initFrontendRenderer(&frontend)) {
@@ -20,7 +25,7 @@ int main(int argc, char *argv[]) {
 
     while (frontend.running) {
         checkEvents(&frontend);
-        drawFrameSync(&frontend, &sim);
+        drawFrameSync(&frontend, sim);
     }
 
     destroyFrontendRenderer(&frontend);

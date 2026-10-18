@@ -3,11 +3,14 @@
 #include "simulation.h"
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
+#include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_video.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,7 +34,7 @@ bool initFrontendRenderer(Frontend *frontend) {
     }
 
     if (!SDL_CreateWindowAndRenderer("Ant Simulation", SCREEN_W, SCREEN_H,
-                                     SDL_WINDOW_RESIZABLE, &frontend->window,
+                                     SDL_WINDOW_FULLSCREEN, &frontend->window,
                                      &frontend->renderer)) {
         printf("Couldn't create window/renderer: %s", SDL_GetError());
         return false;
@@ -95,7 +98,24 @@ void renderCircle(Frontend *frontend, SDL_FPoint center, float radius) {
     free(triangleIndexArray);
 }
 
-void drawFrameSync(Frontend *frontend, const Sim *sim) {
+void drawGrid(Frontend *frontend, const Sim sim) {
+    SDL_Color gridColor = {.r = 30, .g = 30, .b = 30, .a = 255};
+    SDL_SetRenderDrawColor(frontend->renderer, gridColor.r, gridColor.g,
+                           gridColor.b, gridColor.a);
+
+    for (int x = 0; x < sim.width; x++) {
+        SDL_RenderLine(frontend->renderer,
+                       ((float)SCREEN_W / (float)sim.width) * x, 0.0,
+                       ((float)SCREEN_W / (float)sim.width) * x, SCREEN_H);
+    }
+    for (int y = 0; y < sim.height; y++) {
+        SDL_RenderLine(frontend->renderer, 0.0,
+                       ((float)SCREEN_H / (float)sim.height) * y, SCREEN_W,
+                       ((float)SCREEN_H / (float)sim.height) * y);
+    }
+}
+
+void drawFrameSync(Frontend *frontend, const Sim sim) {
     SDL_Time nextFrameDelay =
         (1e9 / TARGET_FPS) - (SDL_GetTicksNS() - frontend->prevFrameTime);
     SDL_DelayNS(nextFrameDelay);
@@ -103,7 +123,7 @@ void drawFrameSync(Frontend *frontend, const Sim *sim) {
     drawFrame(frontend, sim);
 }
 
-void drawFrame(Frontend *frontend, const Sim *sim) {
+void drawFrame(Frontend *frontend, const Sim sim) {
     SDL_Color clearColor = {.r = 0, .g = 0, .b = 0, .a = 255};
     SDL_SetRenderDrawColor(frontend->renderer, clearColor.r, clearColor.g,
                            clearColor.b, clearColor.a);
@@ -113,8 +133,10 @@ void drawFrame(Frontend *frontend, const Sim *sim) {
     SDL_SetRenderDrawColor(frontend->renderer, colonyColor.r, colonyColor.g,
                            colonyColor.b, colonyColor.a);
 
-    SDL_FPoint circleCenter = {.x = 100.0, .y = 100.0};
-    renderCircle(frontend, circleCenter, 50.0);
+    drawGrid(frontend, sim);
+
+    SDL_FPoint colonyCenter = {sim.colony.x, sim.colony.y};
+    renderCircle(frontend, colonyCenter, 50.0);
 
     SDL_RenderPresent(frontend->renderer);
 }
@@ -124,6 +146,11 @@ void checkEvents(Frontend *frontend) {
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             frontend->running = false;
+        }
+        if (event.type == SDL_EVENT_KEY_DOWN) {
+            if ((event.key.key == SDLK_ESCAPE) | (event.key.key == SDLK_Q)) {
+                frontend->running = false;
+            }
         }
     }
 }
