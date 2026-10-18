@@ -64,7 +64,8 @@ void frameDrawRGB(Frontend *frontend) {
     SDL_RenderPresent(frontend->renderer);
 }
 
-void renderCircle(Frontend *frontend, SDL_FPoint center, float radius) {
+void renderCircle(Frontend *frontend, SDL_FPoint center, float radius,
+                  SDL_FColor color) {
     // générer les points du cercle
     int resolution = M_PI * sqrt(radius);
 
@@ -73,13 +74,12 @@ void renderCircle(Frontend *frontend, SDL_FPoint center, float radius) {
     int *triangleIndexArray = (int *)malloc(resolution * 3 * sizeof(int));
 
     float theta = 0;
-    SDL_FColor circleColor = {.r = 1.0, .g = 0.0, .b = 0.0, .a = 1.0};
     circleVA[0].position = center;
-    circleVA[0].color = circleColor;
+    circleVA[0].color = color;
     for (int i = 1; i < resolution + 1; i++) {
         circleVA[i].position.x = center.x + radius * cos(theta);
         circleVA[i].position.y = center.y + radius * sin(theta);
-        circleVA[i].color = circleColor;
+        circleVA[i].color = color;
         theta += (2 * M_PI) / resolution;
     }
     for (int i = 0; i < resolution; i++) {
@@ -129,15 +129,27 @@ void drawFrame(Frontend *frontend, const Sim sim) {
                            clearColor.b, clearColor.a);
     SDL_RenderClear(frontend->renderer);
 
-    SDL_Color colonyColor = {.r = 255, .g = 0, .b = 0, .a = 255};
-    SDL_SetRenderDrawColor(frontend->renderer, colonyColor.r, colonyColor.g,
-                           colonyColor.b, colonyColor.a);
-
     drawGrid(frontend, sim);
 
+    // draw colony
     SDL_FPoint colonyCenter = {sim.colony.x, sim.colony.y};
-    renderCircle(frontend, colonyCenter, 50.0);
+    SDL_FColor colonyColor = {.r = 1.0, .g = 0, .b = 0, .a = 1.0};
+    renderCircle(frontend, colonyCenter, COLONY_RADIUS, colonyColor);
 
+    // draw food
+    SDL_FColor foodColor = {.r = 1.0, .g = 1.0, .b = 0, .a = 1.0};
+    float cellScreenSize = (float)SCREEN_W / (float)sim.width;
+    for (int y = 0; y < sim.height; y++) {
+        for (int x = 0; x < sim.width; x++) {
+            if (sim.simGrid[y][x].food > 0.0) {
+                SDL_FPoint foodCenter = {
+                    x * cellScreenSize + cellScreenSize / 2.0,
+                    y * cellScreenSize + cellScreenSize / 2.0};
+                renderCircle(frontend, foodCenter, cellScreenSize / 2,
+                             foodColor);
+            }
+        }
+    }
     SDL_RenderPresent(frontend->renderer);
 }
 
