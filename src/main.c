@@ -10,17 +10,17 @@
 #include <stdlib.h>
 
 int main(int argc, char *argv[]) {
-    Game game;
-    if (!initGameRenderer(&game)) {
+    Frontend frontend;
+    if (!initFrontendRenderer(&frontend)) {
         return EXIT_FAILURE;
     }
 
-    while (game.running) {
-        checkEvents(&game);
-        drawGameStateSync(&game);
+    while (frontend.running) {
+        checkEvents(&frontend);
+        drawFrameSync(&frontend);
     }
 
-    destroyGameRenderer(&game);
+    destroyFrontendRenderer(&frontend);
 
     return EXIT_SUCCESS;
 }

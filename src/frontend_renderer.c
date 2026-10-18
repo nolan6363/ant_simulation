@@ -19,56 +19,56 @@ Uint32 FPSTimerCallback(void *userdata, SDL_TimerID timerID, Uint32 interval) {
     return interval;
 }
 
-bool initGameRenderer(Game *game) {
+bool initFrontendRenderer(Frontend *frontend) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         printf("Unable to initialize SDL : %s", SDL_GetError());
         return false;
     }
 
     if (!SDL_CreateWindowAndRenderer("Ant Simulation", 640, 480,
-                                     SDL_WINDOW_RESIZABLE, &game->window,
-                                     &game->renderer)) {
+                                     SDL_WINDOW_RESIZABLE, &frontend->window,
+                                     &frontend->renderer)) {
         printf("Couldn't create window/renderer: %s", SDL_GetError());
         return false;
     }
-    SDL_SetRenderLogicalPresentation(game->renderer, 640, 480,
+    SDL_SetRenderLogicalPresentation(frontend->renderer, 640, 480,
                                      SDL_LOGICAL_PRESENTATION_LETTERBOX);
-    game->running = true;
-    game->prevFrameTime = SDL_GetTicksNS();
+    frontend->running = true;
+    frontend->prevFrameTime = SDL_GetTicksNS();
     return true;
 }
 
-bool destroyGameRenderer(Game *game) {
-    SDL_DestroyRenderer(game->renderer);
-    SDL_DestroyWindow(game->window);
+bool destroyFrontendRenderer(Frontend *frontend) {
+    SDL_DestroyRenderer(frontend->renderer);
+    SDL_DestroyWindow(frontend->window);
 
     SDL_Quit();
 
     return true;
 }
 
-void gameDrawRGB(Game *game) {
+void gameDrawRGB(Frontend *frontend) {
     const double now = ((double)SDL_GetTicks()) / 1000.0; // time in seconds
-    SDL_SetRenderDrawColorFloat(game->renderer, 0.5 + 0.5 * sin(now),
+    SDL_SetRenderDrawColorFloat(frontend->renderer, 0.5 + 0.5 * sin(now),
                                 0.5 + 0.5 * sin(now + M_PI * 2.0 / 3.0),
                                 0.5 + 0.5 * sin(now + M_PI * 4.0 / 3.0), 1.0f);
-    SDL_RenderClear(game->renderer);
-    SDL_RenderPresent(game->renderer);
+    SDL_RenderClear(frontend->renderer);
+    SDL_RenderPresent(frontend->renderer);
 }
 
-void drawGameStateSync(Game *game) {
+void drawFrameSync(Frontend *frontend) {
     SDL_Time nextFrameDelay =
-        (1e9 / TARGET_FPS) - (SDL_GetTicksNS() - game->prevFrameTime);
+        (1e9 / TARGET_FPS) - (SDL_GetTicksNS() - frontend->prevFrameTime);
     SDL_DelayNS(nextFrameDelay);
-    game->prevFrameTime = SDL_GetTicksNS();
-    gameDrawRGB(game);
+    frontend->prevFrameTime = SDL_GetTicksNS();
+    gameDrawRGB(frontend);
 }
 
-void checkEvents(Game *game) {
+void checkEvents(Frontend *frontend) {
     SDL_Event event = {0};
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
-            game->running = false;
+            frontend->running = false;
         }
     }
 }
