@@ -1,6 +1,7 @@
 #include "frontend_renderer.h"
 #include "constants.h"
 #include "simulation.h"
+#include "utils.h"
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keycode.h>
@@ -14,6 +15,15 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+SDL_FPoint toScreen(Coord2D pointCell) {
+    float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
+    SDL_FPoint pointScreen = {
+        pointCell.x * cellScreenSize + cellScreenSize / 2.0,
+        pointCell.y * cellScreenSize + cellScreenSize / 2.0};
+
+    return pointScreen;
+}
 
 Uint32 FPSTimerCallback(void *userdata, SDL_TimerID timerID, Uint32 interval) {
     SDL_Event newFrameEvent;
@@ -102,42 +112,21 @@ void drawGrid(Frontend *frontend, const Sim sim) {
     SDL_SetRenderDrawColor(frontend->renderer, gridColor.r, gridColor.g,
                            gridColor.b, gridColor.a);
 
-    for (int x = 0; x < sim.width; x++) {
-        SDL_RenderLine(frontend->renderer,
-                       ((float)SCREEN_W / (float)sim.width) * x, 0.0,
-                       ((float)SCREEN_W / (float)sim.width) * x, SCREEN_H);
+    for (int x = 0; x < SIM_W; x++) {
+        SDL_RenderLine(frontend->renderer, ((float)SCREEN_W / (float)SIM_W) * x,
+                       0.0, ((float)SCREEN_W / (float)SIM_W) * x, SCREEN_H);
     }
-    for (int y = 0; y < sim.height; y++) {
+    for (int y = 0; y < SIM_H; y++) {
         SDL_RenderLine(frontend->renderer, 0.0,
-                       ((float)SCREEN_H / (float)sim.height) * y, SCREEN_W,
-                       ((float)SCREEN_H / (float)sim.height) * y);
+                       ((float)SCREEN_H / (float)SIM_H) * y, SCREEN_W,
+                       ((float)SCREEN_H / (float)SIM_H) * y);
     }
 }
 
-void drawFrameSync(Frontend *frontend, const Sim sim) {
-    SDL_Time nextFrameDelay =
-        (1e9 / TARGET_FPS) - (SDL_GetTicksNS() - frontend->prevFrameTime);
-    if (nextFrameDelay < 0) {
-        nextFrameDelay = 0;
-    }
-    SDL_DelayNS(nextFrameDelay);
-    frontend->prevFrameTime = SDL_GetTicksNS();
-    drawFrame(frontend, sim);
-}
-
-void drawFrame(Frontend *frontend, const Sim sim) {
-    float cellScreenSize = (float)SCREEN_W / (float)sim.width;
-
-    SDL_Color clearColor = {.r = 0, .g = 0, .b = 0, .a = 255};
-    SDL_SetRenderDrawColor(frontend->renderer, clearColor.r, clearColor.g,
-                           clearColor.b, clearColor.a);
-    SDL_RenderClear(frontend->renderer);
-
-    drawGrid(frontend, sim);
-
-    // draw pheromones
-    for (int y = 0; y < sim.height; y++) {
-        for (int x = 0; x < sim.width; x++) {
+void drawPheromones(Frontend *frontend, const Sim sim) {
+    float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
+    for (int y = 0; y < SIM_H; y++) {
+        for (int x = 0; x < SIM_W; x++) {
             if (sim.simGrid[y][x].pheromoneA > 0.0 |
                 sim.simGrid[y][x].pheromoneB > 0.0) {
                 SDL_FColor pheromoneAColor = {
@@ -146,41 +135,41 @@ void drawFrame(Frontend *frontend, const Sim sim) {
                          0.015 * sim.simGrid[y][x].pheromoneB,
                     .b = 0.03 * sim.simGrid[y][x].pheromoneB,
                     .a = 1.0};
-                SDL_FPoint pheromoneCenter = {
-                    x * cellScreenSize + cellScreenSize / 2.0,
-                    y * cellScreenSize + cellScreenSize / 2.0};
+                SDL_FPoint pheromoneCenter = toScreen((Coord2D){x, y});
                 renderCircle(frontend, pheromoneCenter, cellScreenSize / 2,
                              pheromoneAColor);
             }
         }
     }
+}
 
-    // draw colony
-    SDL_FPoint colonyCenter = {
-        sim.colony.x * cellScreenSize + cellScreenSize / 2.0,
-        sim.colony.y * cellScreenSize + cellScreenSize / 2.0};
+void drawColony(Frontend *frontend, const Sim sim) {
+    float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
+    SDL_FPoint colonyCenter = toScreen(sim.colony);
     SDL_FColor colonyColor = {.r = 1.0, .g = 0, .b = 0, .a = 1.0};
     renderCircle(frontend, colonyCenter, COLONY_RADIUS * cellScreenSize,
                  colonyColor);
+}
 
-    // draw food
-    for (int y = 0; y < sim.height; y++) {
-        for (int x = 0; x < sim.width; x++) {
+void drawFood(Frontend *frontend, const Sim sim) {
+    float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
+    for (int y = 0; y < SIM_H; y++) {
+        for (int x = 0; x < SIM_W; x++) {
             if (sim.simGrid[y][x].food > 0.0) {
                 SDL_FColor foodColor = {.r = sim.simGrid[y][x].food,
                                         .g = sim.simGrid[y][x].food,
                                         .b = 0,
                                         .a = 1.0};
-                SDL_FPoint foodCenter = {
-                    x * cellScreenSize + cellScreenSize / 2.0,
-                    y * cellScreenSize + cellScreenSize / 2.0};
+                SDL_FPoint foodCenter = toScreen((Coord2D){x, y});
                 renderCircle(frontend, foodCenter, cellScreenSize / 2,
                              foodColor);
             }
         }
     }
+}
 
-    // draw ants
+void drawAnts(Frontend *frontend, const Sim sim) {
+    float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
     for (int i = 0; i < N_ANTS; i++) {
         float antColAngle = ((2 * M_PI) / N_ANTS) * i;
         SDL_FColor antColor = {
@@ -188,26 +177,47 @@ void drawFrame(Frontend *frontend, const Sim sim) {
             .g = 0.5 + +0.5 * sin(antColAngle + M_PI * 2.0 / 3.0),
             .b = 0.5 + 0.5 * sin(antColAngle + M_PI * 4.0 / 3.0),
             .a = 1.0};
-        SDL_FPoint antCenter = {
-            sim.ants[i].pos.x * cellScreenSize + cellScreenSize / 2.0,
-            sim.ants[i].pos.y * cellScreenSize + cellScreenSize / 2.0};
-
+        SDL_FPoint antCenter = toScreen(sim.ants[i].pos);
         renderCircle(frontend, antCenter, cellScreenSize / 2, antColor);
     }
+}
 
-    // draw debug
+void drawDebug(Frontend *frontend, const Sim sim) {
+    float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
     SDL_FColor debugColor = {.r = 1.0, .g = 0.0, .b = 1.0, .a = 1.0};
-    for (int y = 0; y < sim.height; y++) {
-        for (int x = 0; x < sim.width; x++) {
+    for (int y = 0; y < SIM_H; y++) {
+        for (int x = 0; x < SIM_W; x++) {
             if (sim.simGrid[y][x].debug_flag == true) {
-                SDL_FPoint debugCenter = {
-                    x * cellScreenSize + cellScreenSize / 2.0,
-                    y * cellScreenSize + cellScreenSize / 2.0};
+                SDL_FPoint debugCenter = toScreen((Coord2D){x, y});
                 renderCircle(frontend, debugCenter, cellScreenSize / 3,
                              debugColor);
             }
         }
     }
+}
+
+void drawFrameSync(Frontend *frontend, const Sim sim) {
+    SDL_Time nextFrameDelay = max(
+        (1e9 / TARGET_FPS) - (SDL_GetTicksNS() - frontend->prevFrameTime), 0);
+    SDL_DelayNS(nextFrameDelay);
+    frontend->prevFrameTime = SDL_GetTicksNS();
+    drawFrame(frontend, sim);
+}
+
+void drawFrame(Frontend *frontend, const Sim sim) {
+    float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
+
+    SDL_Color clearColor = {.r = 0, .g = 0, .b = 0, .a = 255};
+    SDL_SetRenderDrawColor(frontend->renderer, clearColor.r, clearColor.g,
+                           clearColor.b, clearColor.a);
+    SDL_RenderClear(frontend->renderer);
+
+    drawGrid(frontend, sim);
+    drawPheromones(frontend, sim);
+    drawColony(frontend, sim);
+    drawFood(frontend, sim);
+    drawAnts(frontend, sim);
+    // drawDebug(frontend, sim);
 
     SDL_RenderPresent(frontend->renderer);
 }

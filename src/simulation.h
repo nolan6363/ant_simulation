@@ -21,7 +21,6 @@ typedef struct {
 } Ant;
 
 typedef struct {
-    int width, height;
     bool running, paused;
     Coord2D colony;
     simCell **simGrid;

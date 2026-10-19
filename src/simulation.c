@@ -5,30 +5,28 @@
 #include <stdlib.h>
 
 bool initSim(Sim *sim) {
-    sim->width = 256;
-    sim->height = 144;
-    sim->colony.x = sim->width / 4.0;
-    sim->colony.y = sim->height / 2.0;
+    sim->colony.x = SIM_W / 4.0;
+    sim->colony.y = SIM_H / 2.0;
     sim->antSpeed = 0.5;
     sim->running = true;
     sim->paused = false;
 
-    sim->simGrid = (simCell **)malloc(sim->height * sizeof(simCell *));
+    sim->simGrid = (simCell **)malloc(SIM_H * sizeof(simCell *));
     if (sim->simGrid == NULL)
         return false;
-    for (int i = 0; i < sim->height; i++) {
-        sim->simGrid[i] = (simCell *)calloc(sim->width, sizeof(simCell));
+    for (int i = 0; i < SIM_H; i++) {
+        sim->simGrid[i] = (simCell *)calloc(SIM_W, sizeof(simCell));
         if (sim->simGrid[i] == NULL)
             return false;
     }
 
-    Coord2D foodCenter = {.x = ((float)sim->width / 4.0) * 3,
-                          .y = (float)sim->height / 2.0};
+    Coord2D foodCenter = {.x = ((float)SIM_W / 4.0) * 3,
+                          .y = (float)SIM_H / 2.0};
     float foodRadius = 10;
 
     // put food on cells
-    for (int y = 0; y < sim->height; y++) {
-        for (int x = 0; x < sim->width; x++) {
+    for (int y = 0; y < SIM_H; y++) {
+        for (int x = 0; x < SIM_W; x++) {
             if ((x - foodCenter.x) * (x - foodCenter.x) +
                     (y - foodCenter.y) * (y - foodCenter.y) <
                 foodRadius * foodRadius) {
@@ -55,9 +53,9 @@ float antGetDirectionSignal(Sim *sim, const Ant ant) {
     float wAvgAngle = 0.0f;
     float totalWheight = 0.0f;
     for (int x = max((int)ant.pos.x - ANT_FOV_RADIUS, 0);
-         x <= min((int)ant.pos.x + ANT_FOV_RADIUS, sim->width - 1); x++) {
+         x <= min((int)ant.pos.x + ANT_FOV_RADIUS, SIM_W - 1); x++) {
         for (int y = max((int)ant.pos.y - ANT_FOV_RADIUS, 0);
-             y <= min((int)ant.pos.y + ANT_FOV_RADIUS, sim->height - 1); y++) {
+             y <= min((int)ant.pos.y + ANT_FOV_RADIUS, SIM_H - 1); y++) {
             if ((x - ant.pos.x) * (x - ant.pos.x) +
                     (y - ant.pos.y) * (y - ant.pos.y) <
                 ANT_FOV_RADIUS * ANT_FOV_RADIUS) {
@@ -92,8 +90,8 @@ float antGetDirectionSignal(Sim *sim, const Ant ant) {
 }
 
 void nextSimStep(Sim *sim) {
-    for (int y = 0; y < sim->height; y++) {
-        for (int x = 0; x < sim->width; x++) {
+    for (int y = 0; y < SIM_H; y++) {
+        for (int x = 0; x < SIM_W; x++) {
             sim->simGrid[y][x].pheromoneA =
                 fmax(sim->simGrid[y][x].pheromoneA * 0.999, 0.0);
             sim->simGrid[y][x].pheromoneB =
@@ -112,15 +110,15 @@ void nextSimStep(Sim *sim) {
         if (ant->pos.x <= 0) {
             ant->pos.x = 0;
             ant->theta = M_PI - ant->theta;
-        } else if (ant->pos.x > sim->width - 1) {
-            ant->pos.x = sim->width - 1;
+        } else if (ant->pos.x > SIM_W - 1) {
+            ant->pos.x = SIM_W - 1;
             ant->theta = M_PI - ant->theta;
         }
         if (ant->pos.y <= 0) {
             ant->pos.y = 0;
             ant->theta = -ant->theta;
-        } else if (ant->pos.y > sim->height - 1) {
-            ant->pos.y = sim->height - 1;
+        } else if (ant->pos.y > SIM_H - 1) {
+            ant->pos.y = SIM_H - 1;
             ant->theta = -ant->theta;
         }
 
@@ -156,7 +154,7 @@ void nextSimStep(Sim *sim) {
 }
 
 void destroySim(Sim *sim) {
-    for (int i = 0; i < sim->height; i++) {
+    for (int i = 0; i < SIM_H; i++) {
         free(sim->simGrid[i]);
     }
     free(sim->simGrid);
