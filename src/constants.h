@@ -5,8 +5,11 @@
 #define SCREEN_W 1920
 #define SCREEN_H 1080
 
-#define COLONY_RADIUS 30
+#define COLONY_RADIUS 5
 
-#define N_ANTS 50
+#define N_ANTS 500
+
+#define ANT_FOV_RADIUS 5
+#define ANT_FOV_ANGLE (M_PI / 6)
 
 #endif // INCLUDEsrcconstantsconstants.h_

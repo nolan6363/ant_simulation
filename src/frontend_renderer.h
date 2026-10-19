@@ -7,7 +7,6 @@
 #include <SDL3/SDL_stdinc.h>
 
 typedef struct {
-    bool running;
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Time prevFrameTime;
@@ -22,6 +21,6 @@ void renderCircle(Frontend *frontend, SDL_FPoint center, float radius,
 void drawGrid(Frontend *frontend, const Sim sim);
 void drawFrameSync(Frontend *frontend, const Sim sim);
 void drawFrame(Frontend *frontend, const Sim sim);
-void checkEvents(Frontend *frontend);
+void checkEvents(Frontend *frontend, Sim *sim);
 
 #endif // INCLUDEsrcgame_renderergame_renderer.h_

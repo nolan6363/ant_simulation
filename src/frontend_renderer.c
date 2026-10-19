@@ -41,7 +41,6 @@ bool initFrontendRenderer(Frontend *frontend) {
     }
     SDL_SetRenderLogicalPresentation(frontend->renderer, SCREEN_W, SCREEN_H,
                                      SDL_LOGICAL_PRESENTATION_LETTERBOX);
-    frontend->running = true;
     frontend->prevFrameTime = SDL_GetTicksNS();
     return true;
 }
@@ -142,10 +141,10 @@ void drawFrame(Frontend *frontend, const Sim sim) {
             if (sim.simGrid[y][x].pheromoneA > 0.0 |
                 sim.simGrid[y][x].pheromoneB > 0.0) {
                 SDL_FColor pheromoneAColor = {
-                    .r = 0.3 * sim.simGrid[y][x].pheromoneA,
-                    .g = 0.15 * sim.simGrid[y][x].pheromoneA +
-                         0.15 * sim.simGrid[y][x].pheromoneB,
-                    .b = 0.3 * sim.simGrid[y][x].pheromoneB,
+                    .r = 0.03 * sim.simGrid[y][x].pheromoneA,
+                    .g = 0.015 * sim.simGrid[y][x].pheromoneA +
+                         0.015 * sim.simGrid[y][x].pheromoneB,
+                    .b = 0.03 * sim.simGrid[y][x].pheromoneB,
                     .a = 1.0};
                 SDL_FPoint pheromoneCenter = {
                     x * cellScreenSize + cellScreenSize / 2.0,
@@ -161,13 +160,17 @@ void drawFrame(Frontend *frontend, const Sim sim) {
         sim.colony.x * cellScreenSize + cellScreenSize / 2.0,
         sim.colony.y * cellScreenSize + cellScreenSize / 2.0};
     SDL_FColor colonyColor = {.r = 1.0, .g = 0, .b = 0, .a = 1.0};
-    renderCircle(frontend, colonyCenter, COLONY_RADIUS, colonyColor);
+    renderCircle(frontend, colonyCenter, COLONY_RADIUS * cellScreenSize,
+                 colonyColor);
 
     // draw food
-    SDL_FColor foodColor = {.r = 1.0, .g = 1.0, .b = 0, .a = 1.0};
     for (int y = 0; y < sim.height; y++) {
         for (int x = 0; x < sim.width; x++) {
             if (sim.simGrid[y][x].food > 0.0) {
+                SDL_FColor foodColor = {.r = sim.simGrid[y][x].food,
+                                        .g = sim.simGrid[y][x].food,
+                                        .b = 0,
+                                        .a = 1.0};
                 SDL_FPoint foodCenter = {
                     x * cellScreenSize + cellScreenSize / 2.0,
                     y * cellScreenSize + cellScreenSize / 2.0};
@@ -192,18 +195,40 @@ void drawFrame(Frontend *frontend, const Sim sim) {
         renderCircle(frontend, antCenter, cellScreenSize / 2, antColor);
     }
 
+    // draw debug
+    SDL_FColor debugColor = {.r = 1.0, .g = 0.0, .b = 1.0, .a = 1.0};
+    for (int y = 0; y < sim.height; y++) {
+        for (int x = 0; x < sim.width; x++) {
+            if (sim.simGrid[y][x].debug_flag == true) {
+                SDL_FPoint debugCenter = {
+                    x * cellScreenSize + cellScreenSize / 2.0,
+                    y * cellScreenSize + cellScreenSize / 2.0};
+                renderCircle(frontend, debugCenter, cellScreenSize / 3,
+                             debugColor);
+            }
+        }
+    }
+
     SDL_RenderPresent(frontend->renderer);
 }
 
-void checkEvents(Frontend *frontend) {
+void checkEvents(Frontend *frontend, Sim *sim) {
     SDL_Event event = {0};
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
-            frontend->running = false;
+            sim->running = false;
         }
         if (event.type == SDL_EVENT_KEY_DOWN) {
             if ((event.key.key == SDLK_ESCAPE) | (event.key.key == SDLK_Q)) {
-                frontend->running = false;
+                sim->running = false;
+            } else if (event.key.key == SDLK_SPACE) {
+                if (!sim->paused) {
+                    printf("Simulation en pause");
+                    sim->paused = true;
+                } else {
+                    printf("Simulation en pause");
+                    sim->paused = false;
+                }
             }
         }
     }

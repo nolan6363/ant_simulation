@@ -21,10 +21,11 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    while (frontend.running) {
-        checkEvents(&frontend);
+    while (sim.running) {
+        checkEvents(&frontend, &sim);
         drawFrameSync(&frontend, sim);
-        nextSimStep(&sim);
+        if (!sim.paused)
+            nextSimStep(&sim);
     }
 
     destroyFrontendRenderer(&frontend);
