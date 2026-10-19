@@ -222,24 +222,27 @@ void drawFrame(Frontend *frontend, const Sim sim) {
     SDL_RenderPresent(frontend->renderer);
 }
 
-void checkEvents(Frontend *frontend, Sim *sim) {
+void handleEvents(Frontend *frontend, Sim *sim) {
     SDL_Event event = {0};
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_EVENT_QUIT) {
+        switch (event.type) {
+        case SDL_EVENT_QUIT:
             sim->running = false;
-        }
-        if (event.type == SDL_EVENT_KEY_DOWN) {
-            if ((event.key.key == SDLK_ESCAPE) | (event.key.key == SDLK_Q)) {
+            break;
+        case SDL_EVENT_KEY_DOWN:
+            switch (event.key.key) {
+            case SDLK_ESCAPE:
+            case SDLK_Q:
                 sim->running = false;
-            } else if (event.key.key == SDLK_SPACE) {
-                if (!sim->paused) {
-                    printf("Simulation en pause");
-                    sim->paused = true;
-                } else {
-                    printf("Simulation en pause");
-                    sim->paused = false;
-                }
+                break;
+            case SDLK_SPACE:
+                sim->paused = !sim->paused;
+                break;
+            default:
+                continue;
             }
+        default:
+            continue;
         }
     }
 }

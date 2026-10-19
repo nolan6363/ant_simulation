@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
     }
 
     while (sim.running) {
-        checkEvents(&frontend, &sim);
+        handleEvents(&frontend, &sim);
         drawFrameSync(&frontend, sim);
         if (!sim.paused)
             nextSimStep(&sim);

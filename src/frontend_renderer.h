@@ -21,6 +21,12 @@ void renderCircle(Frontend *frontend, SDL_FPoint center, float radius,
 void drawGrid(Frontend *frontend, const Sim sim);
 void drawFrameSync(Frontend *frontend, const Sim sim);
 void drawFrame(Frontend *frontend, const Sim sim);
-void checkEvents(Frontend *frontend, Sim *sim);
+void handleEvents(Frontend *frontend, Sim *sim);
+void drawGrid(Frontend *frontend, const Sim sim);
+void drawPheromones(Frontend *frontend, const Sim sim);
+void drawColony(Frontend *frontend, const Sim sim);
+void drawFood(Frontend *frontend, const Sim sim);
+void drawAnts(Frontend *frontend, const Sim sim);
+void drawDebug(Frontend *frontend, const Sim sim);
 
 #endif // INCLUDEsrcgame_renderergame_renderer.h_
