@@ -5,12 +5,19 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 typedef struct {
     SDL_Window *window;
     SDL_Renderer *renderer;
+    TTF_Font *font;
     SDL_Time prevFrameTime;
+    SDL_Time frameTime;
+    SDL_Time tickTime;
 } Frontend;
+
+extern unsigned char tiny_ttf[];
+extern unsigned int tiny_ttf_len;
 
 Uint32 FPSTimerCallback(void *userdata, SDL_TimerID timerID, Uint32 interval);
 bool initFrontendRenderer(Frontend *frontend);
@@ -28,5 +35,7 @@ void drawColony(Frontend *frontend, const Sim sim);
 void drawFood(Frontend *frontend, const Sim sim);
 void drawAnts(Frontend *frontend, const Sim sim);
 void drawDebug(Frontend *frontend, const Sim sim);
+void drawText(Frontend *frontend, char *text, SDL_Color textColor,
+              SDL_FPoint pos);
 
 #endif // INCLUDEsrcgame_renderergame_renderer.h_

@@ -5,8 +5,8 @@
 #define SCREEN_W 1920
 #define SCREEN_H 1080
 
-#define SIM_W 256
-#define SIM_H 144
+#define SIM_W (256 * 1)
+#define SIM_H (144 * 1)
 
 #define COLONY_RADIUS 5
 

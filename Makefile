@@ -3,8 +3,8 @@ SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
 
-CFLAGS = -Werror $(shell pkg-config --cflags sdl3)
-LDLIBS = $(shell pkg-config --libs sdl3) -lm
+CFLAGS = -Werror $(shell pkg-config --cflags sdl3 sdl3-ttf)
+LDLIBS = $(shell pkg-config --libs sdl3 sdl3-ttf) -lm
 
 LIB_SRCS = $(filter-out $(SRC_DIR)/main.c, $(wildcard $(SRC_DIR)/*.c))
 LIB_OBJS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(LIB_SRCS))

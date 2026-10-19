@@ -24,8 +24,11 @@ int main(int argc, char *argv[]) {
     while (sim.running) {
         handleEvents(&frontend, &sim);
         drawFrameSync(&frontend, sim);
-        if (!sim.paused)
+        if (!sim.paused) {
+            SDL_Time start = SDL_GetTicksNS();
             nextSimStep(&sim);
+            frontend.tickTime = SDL_GetTicksNS() - start;
+        }
     }
 
     destroyFrontendRenderer(&frontend);

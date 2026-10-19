@@ -4,14 +4,17 @@
 #include "utils.h"
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
+#include <SDL3_ttf/SDL_ttf.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,6 +54,18 @@ bool initFrontendRenderer(Frontend *frontend) {
     }
     SDL_SetRenderLogicalPresentation(frontend->renderer, SCREEN_W, SCREEN_H,
                                      SDL_LOGICAL_PRESENTATION_LETTERBOX);
+
+    if (!TTF_Init()) {
+        printf("Unable to initialize SDL_ttf: %s\n", SDL_GetError());
+        return false;
+    }
+    frontend->font =
+        TTF_OpenFontIO(SDL_IOFromConstMem(tiny_ttf, tiny_ttf_len), true, 12.0f);
+    if (!frontend->font) {
+        printf("Unable to open font : %s\n", SDL_GetError());
+        return false;
+    }
+
     frontend->prevFrameTime = SDL_GetTicksNS();
     return true;
 }
@@ -199,7 +214,9 @@ void drawDebug(Frontend *frontend, const Sim sim) {
 void drawFrameSync(Frontend *frontend, const Sim sim) {
     SDL_Time nextFrameDelay = max(
         (1e9 / TARGET_FPS) - (SDL_GetTicksNS() - frontend->prevFrameTime), 0);
+    // SDL_Time nextFrameDelay = 0;
     SDL_DelayNS(nextFrameDelay);
+    frontend->frameTime = SDL_GetTicksNS() - frontend->prevFrameTime;
     frontend->prevFrameTime = SDL_GetTicksNS();
     drawFrame(frontend, sim);
 }
@@ -219,7 +236,47 @@ void drawFrame(Frontend *frontend, const Sim sim) {
     drawAnts(frontend, sim);
     // drawDebug(frontend, sim);
 
+    char text[64] = {0};
+    sprintf(text, "Frame time: %f ms", frontend->frameTime / 1e6);
+    drawText(frontend, text, (SDL_Color){255, 255, 255, 255},
+             (SDL_FPoint){10, 10 + 0 * 14});
+    sprintf(text, "FPS : %d", (int)(1000.0 / (frontend->frameTime / 1e6)));
+    drawText(frontend, text, (SDL_Color){255, 255, 255, 255},
+             (SDL_FPoint){10, 10 + 1 * 14});
+    sprintf(text, "Tick time : %fms", (frontend->tickTime / 1e6));
+    drawText(frontend, text, (SDL_Color){255, 255, 255, 255},
+             (SDL_FPoint){10, 10 + 2 * 14});
+    sprintf(text, "TPS : %d", (int)(1000.0 / (frontend->tickTime / 1e6)));
+    drawText(frontend, text, (SDL_Color){255, 255, 255, 255},
+             (SDL_FPoint){10, 10 + 3 * 14});
+
     SDL_RenderPresent(frontend->renderer);
+}
+
+void drawText(Frontend *frontend, char *text, SDL_Color textColor,
+              SDL_FPoint pos) {
+    SDL_Surface *textSurface;
+    SDL_Texture *textTexture;
+    textSurface = TTF_RenderText_Blended(frontend->font, text, 0, textColor);
+
+    if (textSurface) {
+        textTexture =
+            SDL_CreateTextureFromSurface(frontend->renderer, textSurface);
+        SDL_DestroySurface(textSurface);
+    }
+    if (!textTexture) {
+        printf("Unable to create text : %s\n", SDL_GetError());
+        exit(-1);
+    }
+
+    SDL_FRect dst;
+    SDL_GetTextureSize(textTexture, &dst.w, &dst.h);
+    dst.x = pos.x;
+    dst.y = pos.y;
+
+    SDL_SetRenderDrawColor(frontend->renderer, textColor.r, textColor.g,
+                           textColor.b, textColor.a);
+    SDL_RenderTexture(frontend->renderer, textTexture, NULL, &dst);
 }
 
 void handleEvents(Frontend *frontend, Sim *sim) {
