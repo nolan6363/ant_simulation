@@ -10,12 +10,13 @@ typedef struct {
 typedef struct {
     float pheromoneA, pheromoneB;
     float food;
+    bool wall;
     bool debug_flag;
 } simCell;
 
 typedef struct {
     Coord2D pos;
-    float theta;
+    float theta, deriv;
     bool has_food;
     float pheromoneStrenght;
 } Ant;

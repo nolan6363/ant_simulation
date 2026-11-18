@@ -14,6 +14,7 @@ typedef struct {
     SDL_Time prevFrameTime;
     SDL_Time frameTime;
     SDL_Time tickTime;
+    bool renderAnt, renderPhA, renderPhB;
 } Frontend;
 
 extern unsigned char tiny_ttf[];

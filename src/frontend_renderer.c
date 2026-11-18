@@ -6,6 +6,8 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_oldnames.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
@@ -26,6 +28,19 @@ SDL_FPoint toScreen(Coord2D pointCell) {
         pointCell.y * cellScreenSize + cellScreenSize / 2.0};
 
     return pointScreen;
+}
+
+Coord2D toSim(SDL_FPoint pointScreen) {
+    float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
+    Coord2D simCell = {pointScreen.x / cellScreenSize,
+                       pointScreen.y / cellScreenSize};
+
+    if (simCell.x < 0 || simCell.x >= SIM_W || simCell.y < 0 ||
+        simCell.y >= SIM_H) {
+        return (Coord2D){0, 0};
+    }
+
+    return simCell;
 }
 
 Uint32 FPSTimerCallback(void *userdata, SDL_TimerID timerID, Uint32 interval) {
@@ -65,6 +80,10 @@ bool initFrontendRenderer(Frontend *frontend) {
         printf("Unable to open font : %s\n", SDL_GetError());
         return false;
     }
+
+    frontend->renderAnt = true;
+    frontend->renderPhA = true;
+    frontend->renderPhB = true;
 
     frontend->prevFrameTime = SDL_GetTicksNS();
     return true;
@@ -142,13 +161,15 @@ void drawPheromones(Frontend *frontend, const Sim sim) {
     float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
     for (int y = 0; y < SIM_H; y++) {
         for (int x = 0; x < SIM_W; x++) {
-            if (sim.simGrid[y][x].pheromoneA > 0.0 |
-                sim.simGrid[y][x].pheromoneB > 0.0) {
+            if ((sim.simGrid[y][x].pheromoneA > 0.05 && frontend->renderPhA) ||
+                (sim.simGrid[y][x].pheromoneB > 0.05 && frontend->renderPhB)) {
                 SDL_FColor pheromoneAColor = {
-                    .r = 0.03 * sim.simGrid[y][x].pheromoneA,
-                    .g = 0.015 * sim.simGrid[y][x].pheromoneA +
-                         0.015 * sim.simGrid[y][x].pheromoneB,
-                    .b = 0.03 * sim.simGrid[y][x].pheromoneB,
+                    .r = frontend->renderPhA * sim.simGrid[y][x].pheromoneA,
+                    .g = 0.5 * sim.simGrid[y][x].pheromoneA *
+                             frontend->renderPhA +
+                         0.5 * sim.simGrid[y][x].pheromoneB *
+                             frontend->renderPhB,
+                    .b = frontend->renderPhB * sim.simGrid[y][x].pheromoneB,
                     .a = 1.0};
                 SDL_FPoint pheromoneCenter = toScreen((Coord2D){x, y});
                 renderCircle(frontend, pheromoneCenter, cellScreenSize / 2,
@@ -211,6 +232,20 @@ void drawDebug(Frontend *frontend, const Sim sim) {
     }
 }
 
+void drawWall(Frontend *frontend, const Sim sim) {
+    float cellScreenSize = (float)SCREEN_W / (float)SIM_W;
+    SDL_FColor debugColor = {.r = 0.6, .g = 0.6, .b = 0.6, .a = 1.0};
+    for (int y = 0; y < SIM_H; y++) {
+        for (int x = 0; x < SIM_W; x++) {
+            if (sim.simGrid[y][x].wall == true) {
+                SDL_FPoint debugCenter = toScreen((Coord2D){x, y});
+                renderCircle(frontend, debugCenter, cellScreenSize / 3,
+                             debugColor);
+            }
+        }
+    }
+}
+
 void drawFrameSync(Frontend *frontend, const Sim sim) {
     SDL_Time nextFrameDelay = max(
         (1e9 / TARGET_FPS) - (SDL_GetTicksNS() - frontend->prevFrameTime), 0);
@@ -233,8 +268,10 @@ void drawFrame(Frontend *frontend, const Sim sim) {
     drawPheromones(frontend, sim);
     drawColony(frontend, sim);
     drawFood(frontend, sim);
-    drawAnts(frontend, sim);
-    // drawDebug(frontend, sim);
+    if (frontend->renderAnt)
+        drawAnts(frontend, sim);
+    drawDebug(frontend, sim);
+    drawWall(frontend, sim);
 
     char text[64] = {0};
     sprintf(text, "Frame time: %f ms", frontend->frameTime / 1e6);
@@ -277,6 +314,7 @@ void drawText(Frontend *frontend, char *text, SDL_Color textColor,
     SDL_SetRenderDrawColor(frontend->renderer, textColor.r, textColor.g,
                            textColor.b, textColor.a);
     SDL_RenderTexture(frontend->renderer, textTexture, NULL, &dst);
+    SDL_DestroyTexture(textTexture);
 }
 
 void handleEvents(Frontend *frontend, Sim *sim) {
@@ -295,9 +333,43 @@ void handleEvents(Frontend *frontend, Sim *sim) {
             case SDLK_SPACE:
                 sim->paused = !sim->paused;
                 break;
+            case SDLK_1:
+                frontend->renderAnt = !frontend->renderAnt;
+                break;
+            case SDLK_2:
+                frontend->renderPhA = !frontend->renderPhA;
+                break;
+            case SDLK_3:
+                frontend->renderPhB = !frontend->renderPhB;
+                break;
             default:
                 continue;
             }
+            break;
+        case SDL_EVENT_MOUSE_MOTION:
+            if (event.motion.state & (SDL_BUTTON_LMASK | SDL_BUTTON_RMASK)) {
+                SDL_ConvertEventToRenderCoordinates(frontend->renderer, &event);
+                Coord2D simCell =
+                    toSim((SDL_FPoint){event.motion.x, event.motion.y});
+                Coord2D scanStart = {max(0, simCell.x - DEFAULT_BRUSH_SIZE),
+                                     max(0, simCell.y - DEFAULT_BRUSH_SIZE)};
+                Coord2D scanStop = {min(SIM_W, simCell.x + DEFAULT_BRUSH_SIZE),
+                                    min(SIM_H, simCell.y + DEFAULT_BRUSH_SIZE)};
+                for (int x = scanStart.x; x < scanStop.x; x++) {
+                    for (int y = scanStart.y; y < scanStop.y; y++) {
+                        if (isInCircle((Coord2D){x, y}, simCell,
+                                       DEFAULT_BRUSH_SIZE)) {
+                            if (event.motion.state & SDL_BUTTON_LMASK)
+                                sim->simGrid[y][x].wall = true;
+                            else if (event.motion.state & SDL_BUTTON_RMASK)
+                                sim->simGrid[y][x].wall = false;
+                            sim->simGrid[y][x].pheromoneA = 0;
+                            sim->simGrid[y][x].pheromoneB = 0;
+                        }
+                    }
+                }
+            }
+            break;
         default:
             continue;
         }

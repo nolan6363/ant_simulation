@@ -1,3 +1,4 @@
+#include "constants.h"
 #include "frontend_renderer.h"
 #include "simulation.h"
 #include <SDL3/SDL.h>
@@ -20,6 +21,19 @@ int main(int argc, char *argv[]) {
     if (!initFrontendRenderer(&frontend)) {
         return EXIT_FAILURE;
     }
+
+    for (int x = SIM_W / 2 - 20; x < SIM_W / 2 - 15; x++) {
+        for (int y = 0; y < SIM_H - 50; y++) {
+            sim.simGrid[y][x].wall = true;
+        }
+    }
+    for (int x = SIM_W / 2 + 15; x < SIM_W / 2 + 20; x++) {
+        for (int y = 50; y < SIM_H; y++) {
+            sim.simGrid[y][x].wall = true;
+        }
+    }
+
+    srand(0);
 
     while (sim.running) {
         handleEvents(&frontend, &sim);

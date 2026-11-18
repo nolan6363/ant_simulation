@@ -22,14 +22,11 @@ bool initSim(Sim *sim) {
 
     Coord2D foodCenter = {.x = ((float)SIM_W / 4.0) * 3,
                           .y = (float)SIM_H / 2.0};
-    float foodRadius = 10;
 
     // put food on cells
     for (int y = 0; y < SIM_H; y++) {
         for (int x = 0; x < SIM_W; x++) {
-            if ((x - foodCenter.x) * (x - foodCenter.x) +
-                    (y - foodCenter.y) * (y - foodCenter.y) <
-                foodRadius * foodRadius) {
+            if (isInCircle((Coord2D){x, y}, foodCenter, FOOD_RADIUS)) {
                 sim->simGrid[y][x].food = 1.0;
             }
         }
@@ -47,108 +44,134 @@ bool initSim(Sim *sim) {
     return true;
 }
 
+bool isWall(Sim *sim, Coord2D pos) {
+    if (pos.x < 0 || pos.x >= SIM_W || pos.y < 0 || pos.y >= SIM_H ||
+        sim->simGrid[(int)pos.y][(int)pos.x].wall) {
+        return true;
+    } else
+        return false;
+}
+
 // the ant looks for pheromones in its field of view and goes to the average
 // direction
-float antGetDirectionSignal(Sim *sim, const Ant ant) {
-    float wAvgAngle = 0.0f;
-    float totalWheight = 0.0f;
-    for (int x = max((int)ant.pos.x - ANT_FOV_RADIUS, 0);
-         x <= min((int)ant.pos.x + ANT_FOV_RADIUS, SIM_W - 1); x++) {
-        for (int y = max((int)ant.pos.y - ANT_FOV_RADIUS, 0);
-             y <= min((int)ant.pos.y + ANT_FOV_RADIUS, SIM_H - 1); y++) {
-            if ((x - ant.pos.x) * (x - ant.pos.x) +
-                    (y - ant.pos.y) * (y - ant.pos.y) <
-                ANT_FOV_RADIUS * ANT_FOV_RADIUS) {
-                double angle = remainder(
-                    atan2((double)(y - ant.pos.y), (double)(x - ant.pos.x)) -
-                        ant.theta,
-                    2 * M_PI);
-                if (angle < ANT_FOV_ANGLE && angle > -ANT_FOV_ANGLE) {
-                    if (ant.has_food) {
-                        if ((x - sim->colony.x) * (x - sim->colony.x) +
-                                (y - sim->colony.y) * (y - sim->colony.y) <
-                            (COLONY_RADIUS * COLONY_RADIUS)) {
-                            wAvgAngle += angle * 100.0;
-                            totalWheight += 100.0;
-                        } else {
-                            wAvgAngle += angle * sim->simGrid[y][x].pheromoneA;
-                            totalWheight += sim->simGrid[y][x].pheromoneA;
-                        }
-                    } else if (sim->simGrid[y][x].food > 0.0) {
-                        wAvgAngle += angle * 100.0;
-                        totalWheight += 100.0;
-                    } else {
-                        wAvgAngle += angle * sim->simGrid[y][x].pheromoneB;
-                        totalWheight += sim->simGrid[y][x].pheromoneB;
+float antGetDirectionSignal(Sim *sim, Ant ant) {
+    float directionSignal = 0.0f;
+    float repulsion = 0.0f;
+    float maxPheromone = 0.0f;
+
+    Coord2D scanStart = {(ant.pos.x - ANT_FOV_RADIUS),
+                         (ant.pos.y - ANT_FOV_RADIUS)};
+    Coord2D scanStop = {(ant.pos.x + ANT_FOV_RADIUS),
+                        (ant.pos.y + ANT_FOV_RADIUS)};
+
+    for (int x = (int)(scanStart.x); x <= (int)(scanStop.x); x++) {
+        for (int y = (int)(scanStart.y); y <= (int)(scanStop.y); y++) {
+            Coord2D scanPos = {x + 0.5, y + 0.5};
+            if (!isInCircle(scanPos, ant.pos, ANT_FOV_RADIUS)) {
+                continue;
+            }
+            double cellAngle =
+                remainder(atan2((double)(scanPos.y - ant.pos.y),
+                                (double)(scanPos.x - ant.pos.x)) -
+                              ant.theta,
+                          2 * M_PI);
+            if (!(cellAngle < ANT_FOV_ANGLE && cellAngle > -ANT_FOV_ANGLE)) {
+                continue;
+            }
+
+            if (isWall(sim, scanPos)) {
+                float force = 1.0f / pow(dist(scanPos, ant.pos), 2);
+                repulsion += (cellAngle > 0) ? -force : force;
+                continue;
+            }
+
+            if (ant.has_food) {
+                if (isInCircle(scanPos, sim->colony, COLONY_RADIUS)) {
+                    return cellAngle;
+                } else {
+                    if (sim->simGrid[y][x].pheromoneA > maxPheromone) {
+                        maxPheromone = sim->simGrid[y][x].pheromoneA;
+                        directionSignal = cellAngle;
+                    }
+                }
+            } else {
+                if (sim->simGrid[y][x].food > 0.0) {
+                    return cellAngle;
+                } else {
+                    if (sim->simGrid[y][x].pheromoneB > maxPheromone) {
+                        maxPheromone = sim->simGrid[y][x].pheromoneB;
+                        directionSignal = cellAngle;
                     }
                 }
             }
         }
     }
 
-    return (totalWheight == 0.0f) ? 0.0 : wAvgAngle / totalWheight;
+    return directionSignal +
+           fclamp(K_MUR * repulsion, -ANT_FOV_ANGLE, ANT_FOV_ANGLE);
 }
 
 void nextSimStep(Sim *sim) {
     for (int y = 0; y < SIM_H; y++) {
         for (int x = 0; x < SIM_W; x++) {
-            sim->simGrid[y][x].pheromoneA =
-                fmax(sim->simGrid[y][x].pheromoneA * 0.999, 0.0);
-            sim->simGrid[y][x].pheromoneB =
-                fmax(sim->simGrid[y][x].pheromoneB * 0.999, 0.0);
+            sim->simGrid[y][x].pheromoneA *= EVAPORATION_RATE;
+            sim->simGrid[y][x].pheromoneB *= EVAPORATION_RATE;
+            if (sim->simGrid[y][x].pheromoneA <= MIN_PHEROMONE_SENS)
+                sim->simGrid[y][x].pheromoneA = 0.0f;
+            if (sim->simGrid[y][x].pheromoneB <= MIN_PHEROMONE_SENS)
+                sim->simGrid[y][x].pheromoneB = 0.0f;
         }
     }
 
     for (int i = 0; i < N_ANTS; i++) {
         Ant *ant = &sim->ants[i];
-        ant->theta += antGetDirectionSignal(sim, sim->ants[i]);
-        ant->pheromoneStrenght *= 0.99;
+        ant->deriv *= 0.98;
+        ant->deriv += randNormal(0.01);
+        ant->theta += antGetDirectionSignal(sim, sim->ants[i]) + ant->deriv;
+        ant->pheromoneStrenght *= PHEROMONE_STRENGHT_DEPRECIATION;
 
         // walk the ant
-        ant->pos.x += cos(ant->theta) * sim->antSpeed;
-        ant->pos.y += sin(ant->theta) * sim->antSpeed;
-        if (ant->pos.x <= 0) {
-            ant->pos.x = 0;
-            ant->theta = M_PI - ant->theta;
-        } else if (ant->pos.x > SIM_W - 1) {
-            ant->pos.x = SIM_W - 1;
-            ant->theta = M_PI - ant->theta;
+        float dx = cos(ant->theta) * sim->antSpeed;
+        float dy = sin(ant->theta) * sim->antSpeed;
+
+        if (isWall(sim, (Coord2D){ant->pos.x + dx, ant->pos.y})) {
+            dx = 0;
         }
-        if (ant->pos.y <= 0) {
-            ant->pos.y = 0;
-            ant->theta = -ant->theta;
-        } else if (ant->pos.y > SIM_H - 1) {
-            ant->pos.y = SIM_H - 1;
-            ant->theta = -ant->theta;
+        if (isWall(sim, (Coord2D){ant->pos.x, ant->pos.y + dy})) {
+            dy = 0;
         }
 
+        ant->pos.x += dx;
+        ant->pos.y += dy;
+
         // drop pheromone
-        if (ant->has_food == false) {
-            sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].pheromoneA +=
-                ant->pheromoneStrenght;
+        if (!ant->has_food) {
+            sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].pheromoneA =
+                fmax(ant->pheromoneStrenght,
+                     sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].pheromoneA);
         } else {
-            sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].pheromoneB +=
-                ant->pheromoneStrenght;
+            sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].pheromoneB =
+                fmax(ant->pheromoneStrenght,
+                     sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].pheromoneB);
         }
 
         // si food trouvé
-        if (sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].food > 0.0 &&
-            ant->has_food == false) {
-            sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].food -= 0.05;
-            ant->has_food = true;
+        if (sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].food > 0.0) {
+            if (!ant->has_food) {
+                sim->simGrid[(int)ant->pos.y][(int)ant->pos.x].food -= 0.02;
+                ant->has_food = true;
+                ant->theta = remainder(ant->theta + M_PI, 2 * M_PI);
+            }
             ant->pheromoneStrenght = 1.0;
-            ant->theta = remainder(ant->theta + M_PI, 2 * M_PI);
         }
 
         // si food déposé
-        if ((ant->pos.x - sim->colony.x) * (ant->pos.x - sim->colony.x) +
-                    (ant->pos.y - sim->colony.y) *
-                        (ant->pos.y - sim->colony.y) <
-                COLONY_RADIUS * COLONY_RADIUS &&
-            ant->has_food == true) {
-            ant->has_food = false;
+        if (isInCircle(ant->pos, sim->colony, COLONY_RADIUS)) {
             ant->pheromoneStrenght = 1.0;
-            ant->theta = remainder(ant->theta + M_PI, 2 * M_PI);
+            if (ant->has_food) {
+                ant->has_food = false;
+                ant->theta = remainder(ant->theta + M_PI, 2 * M_PI);
+            }
         }
     }
 }
