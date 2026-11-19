@@ -15,7 +15,14 @@ Projet de Parallel Programming (ING5), par Nolan BAYON et Thomas MARGOTTEAU.
 - SDL3 et SDL3_ttf (affichage et export des images)
 - la police DejaVu Sans Mono (`fonts-dejavu-core`)
 
-Sur Raspberry Pi OS, si SDL3 n'est pas disponible avec `apt`, il faut le compiler depuis les sources avec CMake.
+Sur la Raspberry Pi, tout s'installe avec `apt` :
+
+```
+sudo apt update
+sudo apt install build-essential pkg-config libsdl3-dev libsdl3-ttf-dev fonts-dejavu-core
+```
+
+On a testé avec SDL3 3.2.10 et SDL3_ttf 3.2.2.
 
 ## Compilation
 

@@ -146,4 +146,8 @@ OMP_NUM_THREADS=4 ./bin/main 0       # simulation complète sans images
 OMP_NUM_THREADS=4 ./bin/main 0 500   # une image tous les 500 steps
 ```
 
-Le projet dépend de SDL3 et SDL3_ttf, qui servent uniquement à l'affichage et à l'export des images, et de la police DejaVu Sans Mono (paquet `fonts-dejavu-core`). Sur Raspberry Pi OS, SDL3 n'est pas forcément disponible avec `apt`, il faut alors le compiler depuis les sources avec CMake.
+Le projet dépend de SDL3 et SDL3_ttf, qui servent uniquement à l'affichage et à l'export des images, et de la police DejaVu Sans Mono (paquet `fonts-dejavu-core`). Sur la Raspberry Pi (Debian 13 trixie), tout s'installe avec `apt` :
+
+```
+sudo apt install build-essential pkg-config libsdl3-dev libsdl3-ttf-dev fonts-dejavu-core
+```
