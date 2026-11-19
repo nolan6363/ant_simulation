@@ -74,10 +74,62 @@ bool initFrontendRenderer(Frontend *frontend) {
         printf("Unable to initialize SDL_ttf: %s\n", SDL_GetError());
         return false;
     }
-    frontend->font =
-        TTF_OpenFontIO(SDL_IOFromConstMem(tiny_ttf, tiny_ttf_len), true, 12.0f);
+    frontend->font = TTF_OpenFont(DEBUG_FONT_PATH, DEBUG_FONT_SIZE);
+    if (!frontend->font) {
+        printf("Unable to open %s (%s), using embedded font\n",
+               DEBUG_FONT_PATH, SDL_GetError());
+        frontend->font = TTF_OpenFontIO(
+            SDL_IOFromConstMem(tiny_ttf, tiny_ttf_len), true, 12.0f);
+    }
     if (!frontend->font) {
         printf("Unable to open font : %s\n", SDL_GetError());
+        return false;
+    }
+
+    if (!initStats(&frontend->frameStats) ||
+        !initStats(&frontend->tickStats)) {
+        printf("Unable to allocate stats\n");
+        return false;
+    }
+
+    frontend->renderAnt = true;
+    frontend->renderPhA = true;
+    frontend->renderPhB = true;
+    frontend->headless = false;
+    frontend->headlessSurface = NULL;
+
+    frontend->prevFrameTime = SDL_GetTicksNS();
+    return true;
+}
+
+// pas de fenêtre ni de GPU : le renderer logiciel dessine directement dans une
+// surface en mémoire, ce qui permet de réutiliser toutes les fonctions drawXxx
+bool initHeadlessRenderer(Frontend *frontend) {
+    if (!SDL_Init(0)) {
+        printf("Unable to initialize SDL : %s\n", SDL_GetError());
+        return false;
+    }
+
+    frontend->window = NULL;
+    frontend->font = NULL;
+    frontend->headless = true;
+
+    frontend->headlessSurface =
+        SDL_CreateSurface(SCREEN_W, SCREEN_H, SDL_PIXELFORMAT_XRGB8888);
+    if (!frontend->headlessSurface) {
+        printf("Unable to create surface : %s\n", SDL_GetError());
+        return false;
+    }
+
+    frontend->renderer = SDL_CreateSoftwareRenderer(frontend->headlessSurface);
+    if (!frontend->renderer) {
+        printf("Unable to create software renderer : %s\n", SDL_GetError());
+        return false;
+    }
+
+    if (!initStats(&frontend->frameStats) ||
+        !initStats(&frontend->tickStats)) {
+        printf("Unable to allocate stats\n");
         return false;
     }
 
@@ -89,9 +141,28 @@ bool initFrontendRenderer(Frontend *frontend) {
     return true;
 }
 
+bool saveFrame(Frontend *frontend, const Sim sim, const char *path) {
+    drawFrame(frontend, sim);
+    if (!SDL_SaveBMP(frontend->headlessSurface, path)) {
+        printf("Unable to save %s : %s\n", path, SDL_GetError());
+        return false;
+    }
+    return true;
+}
+
 bool destroyFrontendRenderer(Frontend *frontend) {
+    destroyStats(&frontend->frameStats);
+    destroyStats(&frontend->tickStats);
+
+    if (frontend->font)
+        TTF_CloseFont(frontend->font);
+    TTF_Quit();
+
     SDL_DestroyRenderer(frontend->renderer);
-    SDL_DestroyWindow(frontend->window);
+    if (frontend->window)
+        SDL_DestroyWindow(frontend->window);
+    if (frontend->headlessSurface)
+        SDL_DestroySurface(frontend->headlessSurface);
 
     SDL_Quit();
 
@@ -253,6 +324,7 @@ void drawFrameSync(Frontend *frontend, const Sim sim) {
     SDL_DelayNS(nextFrameDelay);
     frontend->frameTime = SDL_GetTicksNS() - frontend->prevFrameTime;
     frontend->prevFrameTime = SDL_GetTicksNS();
+    pushStat(&frontend->frameStats, frontend->frameTime / 1e6);
     drawFrame(frontend, sim);
 }
 
@@ -270,30 +342,71 @@ void drawFrame(Frontend *frontend, const Sim sim) {
     drawFood(frontend, sim);
     if (frontend->renderAnt)
         drawAnts(frontend, sim);
-    drawDebug(frontend, sim);
+    // en headless on veut seulement ce que l'utilisateur verrait, sans debug
+    if (!frontend->headless)
+        drawDebug(frontend, sim);
     drawWall(frontend, sim);
 
-    char text[64] = {0};
-    sprintf(text, "Frame time: %f ms", frontend->frameTime / 1e6);
-    drawText(frontend, text, (SDL_Color){255, 255, 255, 255},
-             (SDL_FPoint){10, 10 + 0 * 14});
-    sprintf(text, "FPS : %d", (int)(1000.0 / (frontend->frameTime / 1e6)));
-    drawText(frontend, text, (SDL_Color){255, 255, 255, 255},
-             (SDL_FPoint){10, 10 + 1 * 14});
-    sprintf(text, "Tick time : %fms", (frontend->tickTime / 1e6));
-    drawText(frontend, text, (SDL_Color){255, 255, 255, 255},
-             (SDL_FPoint){10, 10 + 2 * 14});
-    sprintf(text, "TPS : %d", (int)(1000.0 / (frontend->tickTime / 1e6)));
-    drawText(frontend, text, (SDL_Color){255, 255, 255, 255},
-             (SDL_FPoint){10, 10 + 3 * 14});
+    if (!frontend->headless)
+        drawStats(frontend);
 
+    // en headless, Present vide la file de commandes vers la surface
     SDL_RenderPresent(frontend->renderer);
+}
+
+void drawStats(Frontend *frontend) {
+    StatsSummary frameSummary = getWindowStats(&frontend->frameStats);
+    StatsSummary tickSummary = getWindowStats(&frontend->tickStats);
+
+    char text[5][128] = {0};
+    snprintf(text[0], sizeof(text[0]), "Frame time : %7.3f ms   FPS : %4d",
+             frontend->frameTime / 1e6,
+             (int)(1000.0 / (frontend->frameTime / 1e6)));
+    snprintf(text[1], sizeof(text[1]),
+             "  avg %7.3f  P95 %7.3f  P99 %7.3f  max %7.3f", frameSummary.mean,
+             frameSummary.p95, frameSummary.p99, frameSummary.max);
+    snprintf(text[2], sizeof(text[2]), "Tick time  : %7.3f ms   TPS : %4d",
+             frontend->tickTime / 1e6,
+             (int)(1000.0 / (frontend->tickTime / 1e6)));
+    snprintf(text[3], sizeof(text[3]),
+             "  avg %7.3f  P95 %7.3f  P99 %7.3f  max %7.3f", tickSummary.mean,
+             tickSummary.p95, tickSummary.p99, tickSummary.max);
+    snprintf(text[4], sizeof(text[4]), "Window : %zu/%d samples",
+             tickSummary.count, STATS_WINDOW_SIZE);
+
+    int nLines = 5;
+    int lineSkip = TTF_GetFontLineSkip(frontend->font);
+    float margin = 10;
+    float padding = 8;
+
+    // fond semi-transparent pour rester lisible au-dessus des fourmis
+    int maxWidth = 0;
+    for (int i = 0; i < nLines; i++) {
+        int w, h;
+        if (TTF_GetStringSize(frontend->font, text[i], 0, &w, &h) &&
+            w > maxWidth)
+            maxWidth = w;
+    }
+    SDL_BlendMode prevBlendMode;
+    SDL_GetRenderDrawBlendMode(frontend->renderer, &prevBlendMode);
+    SDL_SetRenderDrawBlendMode(frontend->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(frontend->renderer, 0, 0, 0, 180);
+    SDL_FRect background = {margin, margin, maxWidth + 2 * padding,
+                            nLines * lineSkip + 2 * padding};
+    SDL_RenderFillRect(frontend->renderer, &background);
+    SDL_SetRenderDrawBlendMode(frontend->renderer, prevBlendMode);
+
+    for (int i = 0; i < nLines; i++) {
+        drawText(frontend, text[i], (SDL_Color){255, 255, 255, 255},
+                 (SDL_FPoint){margin + padding,
+                              margin + padding + i * lineSkip});
+    }
 }
 
 void drawText(Frontend *frontend, char *text, SDL_Color textColor,
               SDL_FPoint pos) {
     SDL_Surface *textSurface;
-    SDL_Texture *textTexture;
+    SDL_Texture *textTexture = NULL;
     textSurface = TTF_RenderText_Blended(frontend->font, text, 0, textColor);
 
     if (textSurface) {

@@ -2,7 +2,7 @@
 #include "simulation.h"
 #include <math.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <sys/types.h>
 
 int min(int a, int b) { return (a <= b) ? a : b; }
 int max(int a, int b) { return (a >= b) ? a : b; }
@@ -27,13 +27,15 @@ float gaussian(float x, float sigma) {
     return exp(num / den);
 }
 
-float frand(float min, float max) {
-    return ((float)rand() / RAND_MAX) * (max - min) + min;
+float frandAnt(Ant *ant, float min, float max) {
+    return ((float)xorshift32(&ant->xorshift32state) / UINT32_MAX) *
+               (max - min) +
+           min;
 }
 
-float randNormal(float sigma) {
-    float u1 = frand(1e-7f, 1.0f);
-    float u2 = frand(0.0f, 1.0f);
+float randNormalAnt(Ant *ant, float sigma) {
+    float u1 = frandAnt(ant, 1e-7f, 1.0f);
+    float u2 = frandAnt(ant, 0.0f, 1.0f);
     return sigma * sqrtf(-2.0f * logf(u1)) * cosf(2.0f * M_PI * u2);
 }
 
@@ -46,4 +48,15 @@ float norm(Coord2D B) {
     float y_2 = B.y * B.y;
 
     return sqrtf(x_2 + y_2);
+}
+
+// from https://en.wikipedia.org/wiki/Xorshift
+// The state must be initialized to non-zero
+uint32_t xorshift32(uint32_t *state) {
+    // Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs"
+    uint32_t x = *state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    return *state = x;
 }

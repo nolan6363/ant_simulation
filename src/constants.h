@@ -24,4 +24,13 @@
 
 #define DEFAULT_BRUSH_SIZE 3
 
+// debug
+// police installée par défaut sur Raspberry Pi OS / Debian / Ubuntu
+// (paquet fonts-dejavu-core), sinon on retombe sur la police embarquée
+#define DEBUG_FONT_PATH "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+#define DEBUG_FONT_SIZE 20.0f
+// 600 échantillons = 10 s à 60 FPS, assez pour un P99 significatif
+// (seules les 6 pires valeurs de la fenêtre sont au-dessus du P99)
+#define STATS_WINDOW_SIZE 600
+
 #endif // INCLUDEsrcconstantsconstants.h_
