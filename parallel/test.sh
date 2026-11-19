@@ -2,7 +2,7 @@
 
 STEPS=${1:-0}
 
-./bin/main_seq $STEPS 0 ref.bin > /dev/null
+../sequential/bin/main $STEPS 0 ref.bin > /dev/null
 
 for t in 1 2 3 4; do
     OMP_NUM_THREADS=$t ./bin/main $STEPS 0 par.bin > /dev/null

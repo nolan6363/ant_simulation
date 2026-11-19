@@ -1,1 +1,0 @@
-# Ant simulation in C
